@@ -8,6 +8,7 @@ export default {
       isLoading: false,
       isLoadingCorrections: false,
       onlyShowCorrections: false,
+      sortByCorrections: false,
       agencies: [],
       selectedAgencies: [],
       cfrData: [],
@@ -55,12 +56,14 @@ export default {
                 agency: child.name,
                 count: childCorrections,
               });
+              child.correctionsCnt = childCorrections;
               // console.log(child.name, childCorrections);
             }
             // Add the child's corrections to the parent's total
             totalCorrections += childCorrections;
           }
         }
+        agency.correctionsCnt = totalCorrections;
         if (totalCorrections > 0) {
           this.correctionsCountPerAgency.push({
             agency: agency.name,
@@ -140,16 +143,20 @@ export default {
       return this.agencies.reduce((acc, agency) => acc + agency.children.length + 1, 0);
     },
     filteredAgencies() {
+      const sorted = this.sortByCorrections && this.onlyShowCorrections ? this.sortedByCorrections : this.agencies;
       if (!this.agencyLetter) {
-        return this.agencies.filter(agency =>
+        return sorted.filter(agency =>
           this.onlyShowCorrections ? this.agencyHasCorrections(agency.name) : true
         );
       }
-      return this.agencies.filter(
+      return sorted.filter(
         agency =>
           agency.name.startsWith(this.agencyLetter) &&
           (this.onlyShowCorrections ? this.agencyHasCorrections(agency.name) : true)
       );
+    },
+    sortedByCorrections() {
+      return this.agencies.toSorted((a, b) => a.correctionsCnt - b.correctionsCnt).reverse();
     },
   },
   created() {
@@ -181,7 +188,10 @@ export default {
     </v-row>
     <v-row>
       <v-col align-self="end">
-        <v-switch v-model="onlyShowCorrections" label="Only show agencies with corrections"></v-switch>
+        <v-switch v-model="onlyShowCorrections" @click="sortByCorrections = false" label="Only show agencies with corrections"></v-switch>
+      </v-col>
+      <v-col align-self="end">
+        <v-switch :disabled="!onlyShowCorrections" v-model="sortByCorrections" label="Sort agencies by corrections"></v-switch>
       </v-col>
     </v-row>
     <v-row>
@@ -227,7 +237,7 @@ export default {
             <span v-else>&#127970;</span>
           </template>
           <template v-slot:label="{ item }">
-            {{ item.name }}
+            {{ item.sortable_name }}
             <span v-if="item.children && item.children.length" class="text-caption">
               ({{ item.children.length }} {{ pluralize(item.children.length, 'subagency', 'subagencies') }})
             </span>
