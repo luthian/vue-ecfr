@@ -50,6 +50,7 @@ export default {
             const childCorrections = await this.countCorrectionsForAgency(child);
             if (childCorrections > 0) {
               child.correctionsCnt = childCorrections;
+              child.totalCorrectionsCnt = childCorrections;
             }
             // Add the child's corrections to the parent's total
             totalChildrenCorrections += childCorrections;
@@ -57,7 +58,7 @@ export default {
         }
         agency.correctionsCnt = totalCorrections;
         agency.childrenCorrectionsCnt = totalChildrenCorrections;
-        agency.totalCorrections = totalCorrections + totalChildrenCorrections;
+        agency.totalCorrectionsCnt = totalCorrections + totalChildrenCorrections;
       }
       this.isLoadingCorrections = false;
     },
@@ -129,16 +130,16 @@ export default {
       return this.agencies.reduce((acc, agency) => acc + agency.children.length + 1, 0);
     },
     filteredAgencies() {
-      const sorted = this.sortByCorrections && this.onlyShowCorrections ? this.sortedByCorrections : this.agencies;
+      const sorted = this.sortByCorrections ? this.sortedByCorrections : this.agencies;
       if (!this.agencyLetter) {
         return sorted.filter(agency =>
-          this.onlyShowCorrections ? agency.totalCorrections : true
+          this.onlyShowCorrections ? agency.totalCorrectionsCnt : true
         );
       }
       return sorted.filter(
         agency =>
           agency.name.startsWith(this.agencyLetter) &&
-          (this.onlyShowCorrections ? agency.totalCorrections : true)
+          (this.onlyShowCorrections ? agency.totalCorrectionsCnt : true)
       );
     },
     sortedByCorrections() {
@@ -180,6 +181,8 @@ export default {
           v-model="onlyShowCorrections"
           @click="sortByCorrections = false"
           label="Only show agencies with corrections"
+          persistent-hint
+          hint="This includes the corrections of the subagencies."
         ></v-switch>
       </v-col>
       <v-col align-self="end">
@@ -187,6 +190,8 @@ export default {
           :disabled="!onlyShowCorrections"
           v-model="sortByCorrections"
           label="Sort agencies by correction count"
+          persistent-hint
+          hint="The number of corrections includes the corrections of the subagencies."
         ></v-switch>
       </v-col>
     </v-row>
@@ -250,7 +255,7 @@ export default {
                 <ul>
                   <li v-for="correction in item.corrections" :key="correction.id">
                     <em>"{{ correction.corrective_action }}"</em>
-                    corrected on {{ correction.error_corrected }}. Error occurred on {{ correction.error_occurred }}.
+                    happend on {{ correction.error_corrected }}. Error occurred on {{ correction.error_occurred }}.
                   </li>
                 </ul>
               </details>
