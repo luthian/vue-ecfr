@@ -157,7 +157,10 @@ export default {
 </script>
 <template>
   <v-container>
-    <h1 class="display-2 font-weight-bold mt-1 text-center mb-3">eCFR Explorer</h1>
+    <h1 class="display-2 font-weight-bold mt-1 text-center mb-3">eCFR Agency Explorer</h1>
+    <p>This site allows one to explore corrections to the <a href="https://www.ecfr.gov">Electronic Code of Federation Regulations</a>. The site lists all the Federal Agencies and subagencies and will show which have correctoins in the eCFR system. It will also show the correction and the date it was made as well as the date the oringal error occured.</p>
+    <p>The list of Agencies can be filtered by using the alphabet buttons below. To see the corrections, click the triangle next to the sentence. To see subagencies, click the triangle next to the folder icon.</p>
+    <p class="text-body-2">Note that not all corrections are properly tagged with titles and chapters so they cannot be asssociated with a specfic agency.</p>
     <v-divider class="my-2"></v-divider>
     <v-row>
       <v-col>
