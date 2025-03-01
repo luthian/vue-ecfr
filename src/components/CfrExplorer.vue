@@ -12,7 +12,6 @@ export default {
       agencies: [],
       selectedAgencies: [],
       cfrData: [],
-      correctionsCountPerAgency: [],
       agencyLetter: '',
       alphabet: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
       titleCache: [],
@@ -39,40 +38,28 @@ export default {
     async getCorrectionsCountPerAgency() {
       this.isLoadingCorrections = true;
       // Get the corrections count for each agency. To do this, we need to iterate through all the children, if any, of each agency.
-      // const allChildren = this.agencies.reduce((acc, agency) => acc.concat(agency.children), []);
-      // const allAgencies = this.agencies.concat(allChildren);
-      this.correctionsCountPerAgency.splice(0);
       // Use a for loop because we need to await the response
       for (let i = 0; i < this.agencies.length; i++) {
         const agency = this.agencies[i];
         let totalCorrections = await this.countCorrectionsForAgency(agency);
+        let totalChildrenCorrections = 0;
         // There aren't any children of children, so we can just get the corrections for each child.
         if (agency.children.length > 0) {
           for (let j = 0; j < agency.children.length; j++) {
             const child = agency.children[j];
             const childCorrections = await this.countCorrectionsForAgency(child);
             if (childCorrections > 0) {
-              this.correctionsCountPerAgency.push({
-                agency: child.name,
-                count: childCorrections,
-              });
               child.correctionsCnt = childCorrections;
-              // console.log(child.name, childCorrections);
             }
             // Add the child's corrections to the parent's total
-            totalCorrections += childCorrections;
+            totalChildrenCorrections += childCorrections;
           }
         }
         agency.correctionsCnt = totalCorrections;
-        if (totalCorrections > 0) {
-          this.correctionsCountPerAgency.push({
-            agency: agency.name,
-            count: totalCorrections,
-          });
-        }
+        agency.childrenCorrectionsCnt = totalChildrenCorrections;
+        agency.totalCorrections = totalCorrections + totalChildrenCorrections;
       }
       this.isLoadingCorrections = false;
-      // console.log(this.correctionsCountPerAgency, this.titleCache);
     },
     async countCorrectionsForAgency(agency) {
       let agencyCorrections = 0;
@@ -100,6 +87,11 @@ export default {
           // But there is no way to get the chapter from the data in the correction
           if (correction.cfr_references.hierachy?.chapter === item.chapter) {
             localCorrections += 1;
+            if (agency.corrections) {
+              agency.corrections.push(correction);
+            } else {
+              agency.corrections = [correction];
+            }
           }
         });
         agencyCorrections += localCorrections;
@@ -131,12 +123,6 @@ export default {
         ...params,
       });
     },
-    agencyHasCorrections(agencyName) {
-      return this.correctionsCountPerAgency.some(agency => agency.agency === agencyName);
-    },
-    getCorrectionsForAgency(agencyName) {
-      return this.correctionsCountPerAgency.find(agency => agency.agency === agencyName).count;
-    },
   },
   computed: {
     agencyCount() {
@@ -146,17 +132,19 @@ export default {
       const sorted = this.sortByCorrections && this.onlyShowCorrections ? this.sortedByCorrections : this.agencies;
       if (!this.agencyLetter) {
         return sorted.filter(agency =>
-          this.onlyShowCorrections ? this.agencyHasCorrections(agency.name) : true
+          this.onlyShowCorrections ? agency.totalCorrections : true
         );
       }
       return sorted.filter(
         agency =>
           agency.name.startsWith(this.agencyLetter) &&
-          (this.onlyShowCorrections ? this.agencyHasCorrections(agency.name) : true)
+          (this.onlyShowCorrections ? agency.totalCorrections : true)
       );
     },
     sortedByCorrections() {
-      return this.agencies.toSorted((a, b) => a.correctionsCnt - b.correctionsCnt).reverse();
+      return this.agencies
+        .toSorted((a, b) => a.totalCorrectionsCnt - b.totalCorrectionsCnt)
+        .reverse();
     },
   },
   created() {
@@ -188,10 +176,18 @@ export default {
     </v-row>
     <v-row>
       <v-col align-self="end">
-        <v-switch v-model="onlyShowCorrections" @click="sortByCorrections = false" label="Only show agencies with corrections"></v-switch>
+        <v-switch
+          v-model="onlyShowCorrections"
+          @click="sortByCorrections = false"
+          label="Only show agencies with corrections"
+        ></v-switch>
       </v-col>
       <v-col align-self="end">
-        <v-switch :disabled="!onlyShowCorrections" v-model="sortByCorrections" label="Sort agencies by corrections"></v-switch>
+        <v-switch
+          :disabled="!onlyShowCorrections"
+          v-model="sortByCorrections"
+          label="Sort agencies by correction count"
+        ></v-switch>
       </v-col>
     </v-row>
     <v-row>
@@ -241,13 +237,26 @@ export default {
             <span v-if="item.children && item.children.length" class="text-caption">
               ({{ item.children.length }} {{ pluralize(item.children.length, 'subagency', 'subagencies') }})
             </span>
-            <div v-if="!isLoadingCorrections && agencyHasCorrections(item.name)" class="text-caption">
-              This agency has {{ getCorrectionsForAgency(item.name) }}
-              {{ pluralize(getCorrectionsForAgency[item.name], 'correction', 'corrections') }}.
+            <div class="text-caption" v-if="item.childrenCorrectionsCnt">
+              The subagencies have {{ item.childrenCorrectionsCnt }}
+              {{ pluralize(item.childrenCorrectionsCnt, 'correction', 'corrections') }}.
+            </div>
+            <div v-if="!isLoadingCorrections && item.correctionsCnt" class="text-caption">
+              <details>
+                <summary>
+                  This agency has {{ item.correctionsCnt }}
+                  {{ pluralize(item.correctionsCnt, 'correction', 'corrections') }}.
+                </summary>
+                <ul>
+                  <li v-for="correction in item.corrections" :key="correction.id">
+                    <em>"{{ correction.corrective_action }}"</em>
+                    corrected on {{ correction.error_corrected }}. Error occurred on {{ correction.error_occurred }}.
+                  </li>
+                </ul>
+              </details>
             </div>
           </template>
         </v-treeview>
-        {{ correctionsCountPerAgency }}
       </v-col>
     </v-row>
   </v-container>
