@@ -1,19 +1,15 @@
-# Vuetify 2 + Vite
+# eCFR Agency Brower in Vue 2 and Vuetify
 
-This is the default **Vue 2** + **Vuetify 2** + **vue-cli** template created with : `vue create my-app` then `vue add vuetify` then adapted to be used with **Vite** (instead of vue-cli).
+This project allows one to explore corrections to the [Electronic Code of Federation Regulations](https://www.ecfr.gov/). The site lists all the Federal Agencies and subagencies and will show which have correctoins in the eCFR system. It will also show the correction and the date it was made as well as the date the oringal error occured.
 
-Looking at commit [b502df53](https://github.com/sbernard31/vuetify2-vite-template/commit/b502df53f0c6587dece920b31d1977be07491780), you can see differences. 
+The list of Agencies can be filtered by first letter of the `sortable_name` using letters of the alphabet. To see corrections for an Agency, click the triangle next to the sentence with the count. To see subagencies, click the triangle next to the folder icon.
 
-This template should help you to better understand what is strictly needed to make work **Vuetify 2** with **Vite**.
-This could help you to migrate your **Vuetify 2** application from **vue-cli** to **Vite**.
+Note that not all corrections are properly tagged with titles and chapters so they cannot be asssociated with a specfic agency.
 
-:warning: For new project **Vue 3** and **Vuetify 3** should be used because **Vue 2** will [reach End of Life (EOL) on December 31st, 2023](https://v2.vuejs.org/lts/).
+# Tech stack
+This project uses [Vue 2](https://v2.vuejs.org/) with [Vuetify](https://v2.vuetifyjs.com/en/) to build the UI. There is no back-end; all data is pulled from the `eCFR` [API](https://www.ecfr.gov/developers/documentation/api/v1#/) and sorted and manipulated on the front-end. It uses [Vite](https://vite.dev/) for building, serving the developer environment and packaging for building.
 
-## Recommended IDE Setup
+# Credit
+This repo was forked from [Simon Bernard's ](https://github.com/sbernard31/vuetify2-vite-template) which is a template for a Vue 2/Vuetify 2 project using `Vite`
 
-- [VSCodium](https://vscodium.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur)
 
-## More Migration template about vue2 + Vite
-
-- [`vue 2 + vue-cli` to `vue2 + vite` (without vuetify)](https://github.com/sbernard31/vuecli-to-vite-template)
-- [`vue 3 + vite` to `vue 2 + vite` (without vuetify)](https://github.com/sbernard31/vue2-vite-template)
