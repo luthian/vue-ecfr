@@ -132,23 +132,35 @@ export default {
     filteredAgencies() {
       const sorted = this.sortByCorrections ? this.sortedByCorrections : this.agencies;
       if (!this.agencyLetter) {
-        return sorted.filter(agency =>
-          this.onlyShowCorrections ? agency.totalCorrectionsCnt : true
-        );
+        return sorted.filter(agency => (this.onlyShowCorrections ? agency.totalCorrectionsCnt : true));
       }
       return sorted.filter(
         agency =>
-          agency.name.startsWith(this.agencyLetter) &&
-          (this.onlyShowCorrections ? agency.totalCorrectionsCnt : true)
+          agency.name.startsWith(this.agencyLetter) && (this.onlyShowCorrections ? agency.totalCorrectionsCnt : true)
       );
     },
-    sortedByCorrections() {
-      return this.agencies
-        .toSorted((a, b) => a.totalCorrectionsCnt - b.totalCorrectionsCnt)
+    filteredAgenciesWithCorrections() {
+      const allChildren = this.agencies.flatMap(agency => agency.children);
+      const allAgencies = this.agencies.concat(allChildren);
+      if (!this.agencyLetter) {
+        return allAgencies
+          .filter(agency => agency.correctionsCnt)
+          .toSorted((a, b) => a.correctionsCnt - b.correctionsCnt)
+          .reverse();
+      }
+      return allAgencies
+        .filter(agency => agency.name.startsWith(this.agencyLetter) && agency.correctionsCnt)
+        .toSorted((a, b) => a.correctionsCnt - b.correctionsCnt)
         .reverse();
     },
+    sortedByCorrections() {
+      return this.agencies.toSorted((a, b) => a.totalCorrectionsCnt - b.totalCorrectionsCnt).reverse();
+    },
+    getMaxConnections() {
+      return this.agencies.reduce((acc, agency) => Math.max(acc, agency.totalCorrectionsCnt), 0);
+    },
   },
-  created() {
+  mounted() {
     // Get the CFR data when the component is created
     this.isLoading = true;
     this.getCfrData();
@@ -158,11 +170,27 @@ export default {
 <template>
   <v-container>
     <h1 class="display-2 font-weight-bold mt-1 text-center mb-3">eCFR Agency Explorer</h1>
-    <p>This site allows one to explore corrections to the <a href="https://www.ecfr.gov">Electronic Code of Federation Regulations</a>. The site lists all the Federal Agencies and subagencies and will show which have correctoins in the eCFR system. It will also show the correction and the date it was made as well as the date the oringal error occured.</p>
-    <p>The list of Agencies can be filtered by using the alphabet buttons below. To see the corrections, click the triangle next to the sentence. To see subagencies, click the triangle next to the folder icon.</p>
-    <p class="text-body-2">Note that not all corrections are properly tagged with titles and chapters so they cannot be asssociated with a specfic agency.</p>
+    <p>
+      This site allows one to explore corrections to the
+      <a href="https://www.ecfr.gov">Electronic Code of Federation Regulations</a>
+      . The site lists all the Federal Agencies and subagencies and will show which have corrections in the eCFR system.
+      For any agency or subagency with corrections, you show the list of corrections and the date they were made as well
+      as the date the orinigal error occured.
+    </p>
+    <p>
+      The list of Agencies can be filtered by using the alphabet buttons below. To see the corrections, click the
+      triangle next to the sentence. To see subagencies, click the triangle next to the folder icon.
+    </p>
+    <p>
+      The bar graph display will only show Agencies that have corrections; it is always sorted from the most corrections
+      to the least. It can still be filtered using the alphabet buttons.
+    </p>
+    <p class="text-body-2">
+      Note that not all corrections are properly tagged with titles and chapters so they cannot be asssociated with a
+      specfic agency.
+    </p>
     <v-divider class="my-2"></v-divider>
-    <v-row>
+    <v-row class="mb-1">
       <v-col>
         <h2 class="text-center">{{ agencyCount }} Federal Agencies &#128561;</h2>
         <div v-if="isLoading" class="text-center">
@@ -176,26 +204,6 @@ export default {
           <v-progress-circular indeterminate size="16" color="blue" width="2" class="mr-1"></v-progress-circular>
           Loading corrections data...
         </div>
-      </v-col>
-    </v-row>
-    <v-row>
-      <v-col align-self="end">
-        <v-switch
-          v-model="onlyShowCorrections"
-          @click="sortByCorrections = false"
-          label="Only show agencies with corrections"
-          persistent-hint
-          hint="This includes the corrections of the subagencies."
-        ></v-switch>
-      </v-col>
-      <v-col align-self="end">
-        <v-switch
-          :disabled="!onlyShowCorrections"
-          v-model="sortByCorrections"
-          label="Sort agencies by correction count"
-          persistent-hint
-          hint="The number of corrections includes the corrections of the subagencies."
-        ></v-switch>
       </v-col>
     </v-row>
     <v-row>
@@ -224,49 +232,118 @@ export default {
         <v-btn :outlined="'' === agencyLetter" x-small text color="blue" @click="agencyLetter = ''">All</v-btn>
       </v-col>
     </v-row>
-    <v-row>
-      <v-col>
-        <v-treeview
-          v-model="selectedAgencies"
-          :items="filteredAgencies"
-          item-text="name"
-          item-key="slug"
-          label="Agency tree"
-          return-object
-        >
-          <template v-slot:prepend="{ item, open }">
-            <v-icon v-if="item.children && item.children.length" @click="open ? $emit('close') : $emit('open')">
-              {{ open ? 'mdi-folder-open' : 'mdi-folder' }}
-            </v-icon>
-            <span v-else>&#127970;</span>
-          </template>
-          <template v-slot:label="{ item }">
-            {{ item.sortable_name }}
-            <span v-if="item.children && item.children.length" class="text-caption">
-              ({{ item.children.length }} {{ pluralize(item.children.length, 'subagency', 'subagencies') }})
-            </span>
-            <div class="text-caption" v-if="item.childrenCorrectionsCnt">
-              The subagencies have {{ item.childrenCorrectionsCnt }}
-              {{ pluralize(item.childrenCorrectionsCnt, 'correction', 'corrections') }}.
+    <v-tabs grow>
+      <v-tab>Bar Graph</v-tab>
+      <v-tab>Agency Tree</v-tab>
+      <v-tab-item>
+        <v-row v-if="isLoadingCorrections" class="mt-2">
+          <v-col>
+            <span class="grey--text text--darken-1 pt-3">Loading corrections data...</span>
+          </v-col>
+        </v-row>
+        <v-row v-else>
+          <v-col>
+            <div v-for="item in filteredAgenciesWithCorrections" :key="item.slug">
+              <v-card v-if="item.correctionsCnt" tile elevation="0" class="xxmb-2">
+                <v-card-title>{{ item.name }}</v-card-title>
+                <v-card-text>
+                  <v-progress-linear :value="(item.correctionsCnt / getMaxConnections) * 100" color="blue" height="25">
+                    <template v-slot:default="{}">
+                      <strong>
+                        <div class="text-center">
+                          {{ item.correctionsCnt }}
+                          {{ pluralize(item.correctionsCnt, 'correction', 'corrections') }}
+                        </div>
+                      </strong>
+                    </template>
+                  </v-progress-linear>
+                  <div v-if="!isLoadingCorrections && item.correctionsCnt" class="text-caption">
+                    <details>
+                      <summary>
+                        Show
+                        {{ pluralize(item.correctionsCnt, 'correction', 'corrections') }}
+                      </summary>
+                      <ul>
+                        <li v-for="correction in item.corrections" :key="correction.id">
+                          <em>"{{ correction.corrective_action }}"</em>
+                          happend on {{ correction.error_corrected }}. Error occurred on
+                          {{ correction.error_occurred }}.
+                        </li>
+                      </ul>
+                    </details>
+                  </div>
+                </v-card-text>
+              </v-card>
             </div>
-            <div v-if="!isLoadingCorrections && item.correctionsCnt" class="text-caption">
-              <details>
-                <summary>
-                  This agency has {{ item.correctionsCnt }}
-                  {{ pluralize(item.correctionsCnt, 'correction', 'corrections') }}.
-                </summary>
-                <ul>
-                  <li v-for="correction in item.corrections" :key="correction.id">
-                    <em>"{{ correction.corrective_action }}"</em>
-                    happend on {{ correction.error_corrected }}. Error occurred on {{ correction.error_occurred }}.
-                  </li>
-                </ul>
-              </details>
-            </div>
-          </template>
-        </v-treeview>
-      </v-col>
-    </v-row>
+          </v-col>
+        </v-row>
+      </v-tab-item>
+      <v-tab-item>
+        <v-row>
+          <v-col align-self="end">
+            <v-switch
+              v-model="onlyShowCorrections"
+              @click="sortByCorrections = false"
+              label="Only show agencies with corrections"
+              persistent-hint
+              hint="This includes the corrections of the subagencies."
+            ></v-switch>
+          </v-col>
+          <v-col align-self="end">
+            <v-switch
+              :disabled="!onlyShowCorrections"
+              v-model="sortByCorrections"
+              label="Sort agencies by correction count"
+              persistent-hint
+              hint="The number of corrections includes the corrections of the subagencies."
+            ></v-switch>
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-col>
+            <v-treeview
+              v-model="selectedAgencies"
+              :items="filteredAgencies"
+              item-text="name"
+              item-key="slug"
+              label="Agency tree"
+              return-object
+            >
+              <template v-slot:prepend="{ item, open }">
+                <v-icon v-if="item.children && item.children.length" @click="open ? $emit('close') : $emit('open')">
+                  {{ open ? 'mdi-folder-open' : 'mdi-folder' }}
+                </v-icon>
+                <span v-else>&#127970;</span>
+              </template>
+              <template v-slot:label="{ item }">
+                {{ item.sortable_name }}
+                <span v-if="item.children && item.children.length" class="text-caption">
+                  ({{ item.children.length }} {{ pluralize(item.children.length, 'subagency', 'subagencies') }})
+                </span>
+                <div class="text-caption" v-if="item.childrenCorrectionsCnt">
+                  The subagencies have {{ item.childrenCorrectionsCnt }}
+                  {{ pluralize(item.childrenCorrectionsCnt, 'correction', 'corrections') }}.
+                </div>
+                <div v-if="!isLoadingCorrections && item.correctionsCnt" class="text-caption">
+                  <details>
+                    <summary>
+                      This agency has {{ item.correctionsCnt }}
+                      {{ pluralize(item.correctionsCnt, 'correction', 'corrections') }}.
+                    </summary>
+                    <ul>
+                      <li v-for="correction in item.corrections" :key="correction.id">
+                        <em>"{{ correction.corrective_action }}"</em>
+                        happend on {{ correction.error_corrected }}. Error occurred on {{ correction.error_occurred }}.
+                      </li>
+                    </ul>
+                  </details>
+                </div>
+              </template>
+            </v-treeview>
+          </v-col>
+        </v-row>
+      </v-tab-item>
+    </v-tabs>
   </v-container>
 </template>
 
